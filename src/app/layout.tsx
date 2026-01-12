@@ -30,7 +30,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className="antialiased font-sans">
-        {children}
+        <TanstackQueryProvider>
+          {children}
+        </TanstackQueryProvider>
       </body>
     </html>
   );
