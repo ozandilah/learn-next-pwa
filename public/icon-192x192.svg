@@ -1,0 +1,5 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" rx="24" fill="#000000"/>
+  <path d="M96 144C123.614 144 146 121.614 146 94C146 66.3858 123.614 44 96 44C68.3858 44 46 66.3858 46 94C46 121.614 68.3858 144 96 144Z" fill="#ffffff"/>
+  <text x="96" y="110" font-family="Arial" font-size="48" font-weight="bold" fill="#000000" text-anchor="middle">PWA</text>
+</svg>
