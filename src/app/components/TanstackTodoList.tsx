@@ -2,6 +2,7 @@
 
 import { useCreateTodo, useDeleteTodo, useTodos, useUpdateTodo } from '@/hooks/useTodos'
 import { useEffect, useState } from 'react'
+import { ClearCacheButton } from './PWARefresh'
 
 export default function TanstackTodoList() {
   const [newTodo, setNewTodo] = useState('')
@@ -13,21 +14,41 @@ export default function TanstackTodoList() {
     setMounted(true)
   }, [])
 
-  // Monitor online/offline status
+  // Monitor online/offline status with connectivity check
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    setIsOnline(navigator.onLine)
+    // Initial check
+    const checkConnectivity = async () => {
+      try {
+        // Try to fetch a small resource to verify real connectivity
+        const response = await fetch('/manifest.webmanifest', {
+          method: 'HEAD',
+          cache: 'no-cache'
+        })
+        setIsOnline(response.ok)
+      } catch {
+        setIsOnline(false)
+      }
+    }
 
-    const handleOnline = () => setIsOnline(true)
+    checkConnectivity()
+
+    const handleOnline = () => {
+      checkConnectivity()
+    }
     const handleOffline = () => setIsOnline(false)
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
+    // Periodic connectivity check (every 10 seconds)
+    const interval = setInterval(checkConnectivity, 10000)
+
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      clearInterval(interval)
     }
   }, [])
 
@@ -153,6 +174,9 @@ function TanstackTodoListClient({ isOnline }: { isOnline: boolean }) {
               <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
               <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
             </div>
+
+            {/* Clear Cache Button for Debugging */}
+            <ClearCacheButton />
 
             {/* Mutation Status */}
             {isMutating && (

@@ -1,7 +1,7 @@
 // Service Worker untuk PWA
 // Handles: Push Notifications, Caching, Offline Support
 
-const CACHE_NAME = 'next-pwa-v1';
+const CACHE_NAME = 'next-pwa-v2';
 const urlsToCache = [
   '/',
   '/offline',

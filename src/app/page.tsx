@@ -4,6 +4,7 @@ import { PushNotificationManager } from './components/PushNotificationManager'
 import { InstallPrompt } from './components/InstallPrompt'
 import { PWAStatus } from './components/PWAStatus'
 import TanstackTodoList from './components/TanstackTodoList'
+import PWARefresh from './components/PWARefresh'
 
 // Disable static optimization for this page (needs client-side only)
 export const dynamic = 'force-dynamic'
@@ -118,6 +119,9 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* PWA Update Notification */}
+      <PWARefresh />
     </div>
   )
 }
