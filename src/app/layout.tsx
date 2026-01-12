@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { TanstackQueryProvider } from '@/providers/tanstack-query-provider'
 
 export const metadata: Metadata = {
   title: "Next.js PWA Tutorial",

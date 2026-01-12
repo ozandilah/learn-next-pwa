@@ -1,6 +1,12 @@
+'use client'
+
 import { PushNotificationManager } from './components/PushNotificationManager'
 import { InstallPrompt } from './components/InstallPrompt'
 import { PWAStatus } from './components/PWAStatus'
+import TanstackTodoList from './components/TanstackTodoList'
+
+// Disable static optimization for this page (needs client-side only)
+export const dynamic = 'force-dynamic'
 
 export default function Home() {
   return (
@@ -12,7 +18,7 @@ export default function Home() {
             Next.js PWA Tutorial
           </h1>
           <p className="text-xl text-zinc-600 dark:text-zinc-400">
-            Progressive Web App with Push Notifications & Offline Support
+            Progressive Web App with Push Notifications & Offline CRUD
           </p>
           
           {/* Feature badges */}
@@ -40,6 +46,9 @@ export default function Home() {
           {/* Install Prompt */}
           <InstallPrompt />
           
+          {/* Todo List with Supabase + TanStack Query */}
+          <TanstackTodoList />
+          
           {/* Push Notifications Manager */}
           <PushNotificationManager />
           
@@ -56,6 +65,8 @@ export default function Home() {
                 <li><strong>Service Worker:</strong> Handles caching, offline support, and push notifications</li>
                 <li><strong>Web App Manifest:</strong> Makes the app installable on devices</li>
                 <li><strong>Push Notifications:</strong> Real-time notifications using Web Push API</li>
+                <li><strong>Offline CRUD:</strong> Create, Read, Update, Delete data even without internet</li>
+                <li><strong>Background Sync:</strong> Automatically syncs changes when you reconnect</li>
                 <li><strong>Offline Support:</strong> Works without internet connection</li>
                 <li><strong>Responsive Design:</strong> Works on all devices and screen sizes</li>
               </ul>
