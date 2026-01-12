@@ -46,6 +46,7 @@ export default function TanstackTodoList() {
 // Separate client component that uses hooks
 function TanstackTodoListClient({ isOnline }: { isOnline: boolean }) {
   const [newTodo, setNewTodo] = useState('')
+  const [initialized, setInitialized] = useState(false)
 
   // TanStack Query hooks - only called after mounting
   const { data: todos = [], isLoading, error, refetch } = useTodos()
@@ -53,7 +54,27 @@ function TanstackTodoListClient({ isOnline }: { isOnline: boolean }) {
   const updateMutation = useUpdateTodo()
   const deleteMutation = useDeleteTodo()
 
-  // CREATE
+  // Initialize and pre-populate cache from IndexedDB if offline
+  useEffect(() => {
+    const initializeOfflineData = async () => {
+      if (!navigator.onLine) {
+        console.log('Offline mode - checking IndexedDB')
+        try {
+          const { offlineDB } = await import('@/lib/offline-storage')
+          await offlineDB.init()
+          const offlineTodos = await offlineDB.todos.getAll()
+          console.log(`Loaded ${offlineTodos.length} todos from IndexedDB`)
+        } catch (error) {
+          console.error('Failed to load offline data:', error)
+        }
+      }
+      setInitialized(true)
+    }
+
+    initializeOfflineData()
+  }, [])
+
+  // CREATE - Add new todo (works offline!)
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTodo.trim()) return

@@ -11,19 +11,29 @@ export function TanstackQueryProvider({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             // Offline-first configuration
-            staleTime: 60 * 1000, // 1 minute
-            gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+            staleTime: 5 * 60 * 1000, // 5 minutes - data dianggap fresh
+            gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
             refetchOnWindowFocus: true,
             refetchOnReconnect: true,
-            retry: 3,
+            refetchOnMount: true,
+            retry: (failureCount, error: any) => {
+              // Don't retry on 404 or other client errors
+              if (error?.response?.status === 404) return false
+              return failureCount < 3
+            },
             retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-            // Enable network mode for offline support
-            networkMode: 'offlineFirst', // Try cache first, then network
+            // PENTING: Network mode untuk offline support
+            networkMode: 'offlineFirst', // Coba cache dulu, baru network
           },
           mutations: {
-            // Retry mutations when back online
+            // PENTING: Retry mutations when back online
             networkMode: 'offlineFirst',
             retry: 2,
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+            // Mutation tetap jalan meskipun offline (optimistic updates)
+            onError: (error) => {
+              console.log('Mutation failed (might be offline):', error)
+            },
           },
         },
       })

@@ -60,10 +60,56 @@ const deleteTodo = async (id: string): Promise<void> => {
 export function useTodos() {
   return useQuery({
     queryKey: ['todos'],
-    queryFn: fetchTodos,
+    queryFn: async () => {
+      // Kalau offline, ambil dari cache atau IndexedDB
+      if (!navigator.onLine) {
+        console.log('Offline - loading from cache/IndexedDB')
+        
+        // Coba ambil dari IndexedDB dulu
+        try {
+          await offlineDB.init()
+          const offlineTodos = await offlineDB.todos.getAll()
+          
+          if (offlineTodos.length > 0) {
+            console.log(`Found ${offlineTodos.length} todos in IndexedDB`)
+            // Convert IndexedDB todos to proper format
+            return offlineTodos.map((todo: any) => ({
+              id: todo.id?.toString() || `offline-${todo.createdAt}`,
+              title: todo.title,
+              completed: todo.completed,
+              userId: null,
+              createdAt: new Date(todo.createdAt),
+              updatedAt: new Date(todo.updatedAt || todo.createdAt),
+            })) as Todo[]
+          }
+        } catch (error) {
+          console.log('IndexedDB error:', error)
+        }
+        
+        // Kalau IndexedDB kosong, return empty array (cache will be used by TanStack Query)
+        return []
+      }
+      
+      // Kalau online, fetch dari API
+      return fetchTodos()
+    },
     // Offline-first: will use cached data when offline
     staleTime: 30 * 1000, // Consider data fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    // PENTING: Jangan refetch kalau offline
+    refetchOnMount: (query) => {
+      return navigator.onLine ? 'always' : false
+    },
+    refetchOnWindowFocus: (query) => {
+      return navigator.onLine
+    },
+    refetchOnReconnect: true, // Auto refetch when online
+    // Retry logic
+    retry: (failureCount, error: any) => {
+      // Kalau offline, jangan retry
+      if (!navigator.onLine) return false
+      return failureCount < 3
+    },
   })
 }
 
@@ -71,7 +117,26 @@ export function useCreateTodo() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: createTodo,
+    mutationFn: async (newTodo: CreateTodoInput) => {
+      // Try API call, but don't fail if offline
+      try {
+        return await createTodo(newTodo)
+      } catch (error) {
+        // If offline, return temporary todo
+        if (!navigator.onLine) {
+          console.log('Offline - creating temporary todo')
+          return {
+            id: `temp-${Date.now()}`,
+            title: newTodo.title,
+            completed: newTodo.completed || false,
+            userId: newTodo.userId || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as Todo
+        }
+        throw error
+      }
+    },
     // Optimistic updates
     onMutate: async (newTodo) => {
       // Cancel outgoing refetches
@@ -105,15 +170,27 @@ export function useCreateTodo() {
 
       return { previousTodos }
     },
-    // Rollback on error
+    // Rollback on error (only if online)
     onError: (err, newTodo, context) => {
-      if (context?.previousTodos) {
+      console.log('Create error:', err)
+      // Only rollback if online (if offline, keep optimistic update)
+      if (navigator.onLine && context?.previousTodos) {
         queryClient.setQueryData(['todos'], context.previousTodos)
       }
     },
-    // Refetch on success
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
+    // Refetch on success (only if online)
+    onSuccess: (data) => {
+      // Always save to IndexedDB for offline access
+      offlineDB.init().then(() => {
+        offlineDB.todos.create({
+          title: data.title,
+          completed: data.completed,
+        })
+      })
+      
+      if (navigator.onLine) {
+        queryClient.invalidateQueries({ queryKey: ['todos'] })
+      }
     },
   })
 }
@@ -122,7 +199,23 @@ export function useUpdateTodo() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateTodoInput }) => updateTodo(id, data),
+    mutationFn: async ({ id, data }: { id: string; data: UpdateTodoInput }) => {
+      // Try API call, but don't fail if offline
+      try {
+        return await updateTodo(id, data)
+      } catch (error) {
+        // If offline, return updated todo from cache
+        if (!navigator.onLine) {
+          console.log('Offline - updating in cache only')
+          const todos = queryClient.getQueryData<Todo[]>(['todos']) || []
+          const todo = todos.find((t) => t.id === id)
+          if (todo) {
+            return { ...todo, ...data, updatedAt: new Date() } as Todo
+          }
+        }
+        throw error
+      }
+    },
     // Optimistic updates
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ['todos'] })
@@ -144,12 +237,16 @@ export function useUpdateTodo() {
       return { previousTodos }
     },
     onError: (err, variables, context) => {
-      if (context?.previousTodos) {
+      console.log('Update error:', err)
+      // Only rollback if online
+      if (navigator.onLine && context?.previousTodos) {
         queryClient.setQueryData(['todos'], context.previousTodos)
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
+      if (navigator.onLine) {
+        queryClient.invalidateQueries({ queryKey: ['todos'] })
+      }
     },
   })
 }
@@ -158,7 +255,19 @@ export function useDeleteTodo() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: deleteTodo,
+    mutationFn: async (id: string) => {
+      // Try API call, but don't fail if offline
+      try {
+        return await deleteTodo(id)
+      } catch (error) {
+        // If offline, just delete from cache
+        if (!navigator.onLine) {
+          console.log('Offline - deleting from cache only')
+          return
+        }
+        throw error
+      }
+    },
     // Optimistic updates
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['todos'] })
@@ -170,12 +279,16 @@ export function useDeleteTodo() {
       return { previousTodos }
     },
     onError: (err, id, context) => {
-      if (context?.previousTodos) {
+      console.log('Delete error:', err)
+      // Only rollback if online
+      if (navigator.onLine && context?.previousTodos) {
         queryClient.setQueryData(['todos'], context.previousTodos)
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todos'] })
+      if (navigator.onLine) {
+        queryClient.invalidateQueries({ queryKey: ['todos'] })
+      }
     },
   })
 }
